@@ -75,11 +75,12 @@ nav{display:flex;flex-direction:column;gap:4px}
 nav button{background:none;border:0;border-left:4px solid transparent;border-radius:6px;color:#d9c3a5;padding:8px 10px;font:600 15px Barlow,sans-serif;text-align:left;cursor:pointer;display:flex;align-items:center;gap:9px}
 nav svg{flex-shrink:0}
 nav button.on{color:#fff;background:#00000040;border-left-color:var(--brass)}
-#hoy{margin-top:auto;background:#00000040;border-radius:10px;padding:10px;font-size:13px;color:#d9c3a5}#hoy b{display:block;font:700 22px 'Barlow Condensed',sans-serif;color:var(--brass)}
+#hoy{margin-top:8px;background:#00000040;border-radius:10px;padding:10px;font-size:13px;color:#d9c3a5}#hoy b{display:block;font:700 22px 'Barlow Condensed',sans-serif;color:var(--brass)}
+#cloud{margin-top:auto;font-size:12px;color:#d9c3a5;cursor:pointer;padding:0 6px}
 main{flex:1;min-width:0;padding:20px;max-width:1150px;margin:0 auto}
-@media(max-width:720px){body{flex-direction:column}.side{width:100%;height:auto;position:static;flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:14px}nav{flex-direction:row;flex-wrap:wrap}nav button{border-left:0;border-bottom:3px solid transparent;padding:8px 10px}nav button.on{border-bottom-color:var(--brass)}#hoy{margin:0 0 0 auto;padding:6px 10px}#hoy b{font-size:20px}}
+@media(max-width:720px){body{flex-direction:column}.side{width:100%;height:auto;position:static;flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:14px}nav{flex-direction:row;flex-wrap:wrap}nav button{border-left:0;border-bottom:3px solid transparent;padding:8px 10px}nav button.on{border-bottom-color:var(--brass)}#cloud{margin:0 0 0 auto}#hoy{margin:0;padding:6px 10px}#hoy b{font-size:20px}}
 </style></head><body>
-<aside class="side"><h1>BILLAR HOLD</h1><nav id="nav"></nav><div id="hoy"></div></aside>
+<aside class="side"><h1>BILLAR HOLD</h1><nav id="nav"></nav><div id="cloud">● Conectando…</div><div id="hoy"></div></aside>
 <main id="main"></main><dialog id="dlg"></dialog>
 <script>
 const $=s=>document.querySelector(s),dlg=$('#dlg'),KEY='billar_v2';
@@ -90,7 +91,7 @@ const COL=['#d9534f','#c98a14','#3f84cf','#8e5bd0','#2a9a70','#d9692a','#c04b8f'
 let S=null,tab='mesas',cur=null,sel=null,voidAsk=false;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S||!S.mesas)S={mesas:[1,2,3,4,5,6].map(i=>({id:i,name:'Mesa '+i,rate:10,start:null,items:[],players:[]})),prods:[{n:'Agua',p:2},{n:'Gaseosa',p:4},{n:'Cerveza',p:9},{n:'Papas',p:3}],ventas:[],cfg:{frac:15},nid:7,pid:1};
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}if(window.FB)FB.saveState()};
 const cm=()=>S.mesas.find(m=>m.id==cur);
 const el=m=>m.start?(m.stop||Date.now())-m.start:0;
 const bill=m=>{const c=Math.ceil(el(m)/60000/S.cfg.frac)*S.cfg.frac;return m.stop?Math.max(c,S.cfg.frac):Math.max(c,m.plan||0)};
@@ -194,7 +195,7 @@ function act(b){
   else if(a=='add'){const m=cm(),p=S.prods[i],x=m.items.find(t=>t.n==p.n&&t.p==p.p&&t.pid==sel);x?x.q++:m.items.push({n:p.n,p:p.p,q:1,pid:sel});save();detail(m.id);render()}
   else if(a=='less'){const m=cm();if(--m.items[i].q<=0)m.items.splice(i,1);save();detail(m.id);render()}
   else if(a=='pay'){const m=cm(),p=m.players.find(x=>x.id==pid),t=pamt(m,p);
-    S.ventas.push({t:Date.now(),mesa:m.name+' · '+p.n,min:m.start?bill(m):0,tc:r2(tshare(m,p)),ic:r2(pic(m,p)),tot:t,pay:b.dataset.p});
+    const v={t:Date.now(),mesa:m.name+' · '+p.n,min:m.start?bill(m):0,tc:r2(tshare(m,p)),ic:r2(pic(m,p)),tot:t,pay:b.dataset.p};S.ventas.push(v);if(window.FB)FB.venta(v);
     p.paid=true;p.amt=t;p.pay=b.dataset.p;
     if(m.players.every(x=>x.paid)){reset(m);save();dlg.close();render()}else{save();detail(m.id);render()}}
   else if(a=='void'){if(!voidAsk){voidAsk=true;b.textContent='Toca otra vez para anular';return}
@@ -212,5 +213,62 @@ setInterval(()=>{
   S.mesas.forEach(m=>{if(!m.start)return;const t=$('#t'+m.id);if(t){t.textContent=disp(m);t.style.color=over(m)?'var(--danger)':'';$('#c'+m.id).textContent=money(due(m))}});
   if(dlg.open&&$('#dt')){const m=cm();if(m){$('#dt').textContent=disp(m);$('#dl').textContent=dlab(m);$('#dtot').textContent=money(due(m));m.players.forEach(p=>{const x=$('#pa'+p.id);if(x)x.textContent=money(pamt(m,p))})}}
 },1000);
+const canon=o=>JSON.stringify(o,(k,v)=>v&&typeof v=='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((r,x)=>(r[x]=v[x],r),{}):v);
+const typing=()=>{const a=document.activeElement;return a&&/INPUT|SELECT/.test(a.tagName)&&(dlg.contains(a)||$('#main').contains(a))};
+let lastErr=null;
+window.APP={
+  getState(){const{ventas,...r}=S;return JSON.parse(JSON.stringify(r))},
+  getVentas:()=>S.ventas,
+  applyRemote(d){
+    const K=['mesas','prods','cfg','nid','pid'];
+    if(K.every(k=>canon(S[k])===canon(d[k])))return;
+    if(typing())return;
+    K.forEach(k=>{if(d[k]!==undefined)S[k]=d[k]});
+    try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+    render();
+    if(dlg.open&&$('#dt')){if(cm())detail(cur);else dlg.close()}
+  },
+  applyVentas(a){
+    S.ventas=a;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+    if(typing()||dlg.open){$('#hoy').innerHTML=`Ventas de hoy<b>${money(today().reduce((x,v)=>x+v.tot,0))}</b>`}else render();
+  },
+  setCloud(ok,e){const c=$('#cloud');lastErr=ok?null:e;
+    c.textContent=ok?'● Guardado en la nube':'● Sin nube'+(e&&e.code?' ('+e.code+')':'');
+    c.style.color=ok?'#7fd9a8':'#ff9c93';if(e)console.error(e)}
+};
+$('#cloud').onclick=()=>{if(lastErr)alert('No se pudo guardar en Firebase: '+(lastErr.code||lastErr.message||lastErr)+'\n\nRevisa en Firebase > Firestore Database > Reglas que permitan leer y escribir en "billar" y "ventas", y que la base de datos esté creada.')};
 render();
+</script>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getFirestore,initializeFirestore,persistentLocalCache,persistentMultipleTabManager,doc,setDoc,onSnapshot,collection,addDoc,query,orderBy,limit,writeBatch} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const app=initializeApp({
+  apiKey:"AIzaSyB5AEbDRjVgcrcmlK42OC_emi1p6-WYVt8",
+  authDomain:"billard-40941.firebaseapp.com",
+  projectId:"billard-40941",
+  storageBucket:"billard-40941.firebasestorage.app",
+  messagingSenderId:"531433862763",
+  appId:"1:531433862763:web:8d8cfa247ca5baa01be32e"
+});
+let db;try{db=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})})}catch(e){db=getFirestore(app)}
+const ref=doc(db,'billar','estado'),colV=collection(db,'ventas');
+let want=0,done=0,timer=null,migrated=false;
+const fail=e=>APP.setCloud(false,e);
+window.FB={
+  saveState(){want++;clearTimeout(timer);timer=setTimeout(async()=>{const w=want;
+    try{await setDoc(ref,APP.getState());done=w;APP.setCloud(true)}catch(e){done=w;fail(e)}},300)},
+  venta(v){addDoc(colV,v).then(()=>APP.setCloud(true)).catch(fail)}
+};
+onSnapshot(ref,snap=>{
+  if(!snap.exists()){if(!snap.metadata.fromCache)FB.saveState();return}
+  if(snap.metadata.hasPendingWrites||done<want)return;
+  APP.applyRemote(snap.data());APP.setCloud(true);
+},fail);
+onSnapshot(query(colV,orderBy('t','desc'),limit(500)),snap=>{
+  if(snap.empty){
+    if(!snap.metadata.fromCache&&!migrated){migrated=true;const l=APP.getVentas().slice(-400);
+      if(l.length){const b=writeBatch(db);l.forEach(v=>b.set(doc(colV),v));b.commit().catch(fail)}}
+    return}
+  migrated=true;APP.applyVentas(snap.docs.map(d=>d.data()).reverse());
+},fail);
 </script></body></html>
