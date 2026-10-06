@@ -196,7 +196,7 @@ const due=m=>m.players.filter(p=>!p.paid).reduce((a,p)=>a+pamt(m,p),0);
 const icost=m=>m.items.reduce((a,i)=>a+i.p*i.q,0);
 const today=()=>S.ventas.filter(v=>new Date(v.t).toDateString()==new Date().toDateString());
 const ci=m=>m.players.indexOf(m.players.find(p=>p.id==sel));
-const nt=m=>(m.turnos||[]).length+1;
+const nt=m=>(m.turnos||[]).length+1,tn=m=>(m.turnos||[]).length;
 const wname=(m,t)=>{const p=m.players.find(x=>x.id==t.pid);return p?p.n:t.nm};
 const tally=m=>{const o={};(m.turnos||[]).forEach(t=>{const n=wname(m,t);o[n]=(o[n]||0)+1});return Object.entries(o).map(([k,v])=>k+' '+v).join(' · ')};
 const addPl=m=>{const p={id:S.pid++,n:'Jugador '+(m.players.length+1),paid:false};m.players.push(p);return p};
@@ -221,8 +221,8 @@ function vMesas(){
   <div class="grid">${S.mesas.map(m=>`<article class="card ${m.start?'run':''}" data-a="open" data-id="${m.id}">
     <div class="top"><b>${esc(m.name)}</b><span class="mut">${money(m.rate)}/hora · ${m.players.length} persona${m.players.length==1?'':'s'}</span></div>
     ${seats(m,0)}${pool(m)}${seats(m,1)}
-    <div class="mid"><div><div class="clk" id="t${m.id}" style="${over(m)?'color:var(--danger)':''}">${disp(m)}</div><div class="mut">${m.start?(m.stop?'Tiempo parado':m.plan?'Tiempo de '+pl(m.plan):'En juego'):'Libre'}</div>${m.start?`<div class="mut"><b>Turno ${m.stop?Math.max(1,nt(m)-1):nt(m)}</b>${tally(m)?' · '+esc(tally(m)):''}</div>`:''}</div><div class="tot" id="c${m.id}">${money(m.start||m.items.length?due(m)||0:0)}</div></div>
-    <div class="row">${!m.start?`<input id="mt${m.id}" data-a="noop" type="number" step="0.1" min="0" placeholder="Monto S/ (opcional)" aria-label="Monto antes de iniciar" style="width:150px"><button data-a="start" data-id="${m.id}">Iniciar</button>`:m.stop?'':`<button data-a="stop" data-id="${m.id}">Parar tiempo</button>`}<button class="ghost" data-a="addpl" data-id="${m.id}">+ Persona</button><button class="ghost" data-a="open" data-id="${m.id}">Cuenta</button></div></article>`).join('')}</div>`;
+    <div class="mid"><div><div class="clk" id="t${m.id}" style="${over(m)?'color:var(--danger)':''}">${disp(m)}</div><div class="mut">${m.start?(m.stop?'Tiempo parado':m.plan?'Tiempo de '+pl(m.plan):'En juego'):'Libre'}</div>${m.start?`<div class="mut"><b>${m.stop?'Van '+tn(m)+' turno'+(tn(m)==1?'':'s'):'Turno '+nt(m)+' en juego · van '+tn(m)+' jugado'+(tn(m)==1?'':'s')}</b>${tally(m)?' · '+esc(tally(m)):''}</div>`:''}</div><div class="tot" id="c${m.id}">${money(m.start||m.items.length?due(m)||0:0)}</div></div>
+    <div class="row">${!m.start?`<input id="mt${m.id}" data-a="noop" type="number" step="0.1" min="0" placeholder="Monto S/ (opcional)" aria-label="Monto antes de iniciar" style="width:150px"><button data-a="start" data-id="${m.id}">Iniciar</button>`:m.stop?`<button data-a="resume" data-id="${m.id}">Otro turno</button>`:`<button data-a="stop" data-id="${m.id}">Parar tiempo</button>`}<button class="ghost" data-a="addpl" data-id="${m.id}">+ Persona</button><button class="ghost" data-a="open" data-id="${m.id}">Cuenta</button></div></article>`).join('')}</div>`;
 }
 function vProds(){
   return `<div class="bar"><input id="pn" placeholder="Producto" aria-label="Producto"><input id="pp" type="number" step="0.1" min="0" placeholder="Precio" aria-label="Precio" style="width:110px"><input id="ps" type="number" step="1" min="0" placeholder="Cantidad" aria-label="Cantidad en stock" style="width:110px"><button data-a="addp">Agregar producto</button></div>
@@ -307,9 +307,9 @@ function detail(id){
   const sp=m.players.find(p=>p.id==sel);
   dlg.innerHTML=`<div class="dh"><h2>${esc(m.name)}</h2><button class="ghost" data-a="close">Cerrar</button></div>
   <div class="sum"><div><span class="mut" id="dl">${dlab(m)}</span><b id="dt">${disp(m)}</b></div><div><span class="mut">Personas</span><b>${m.players.length}</b></div><div><span class="mut">Falta cobrar</span><b id="dtot">${money(due(m))}</b></div></div>
-  ${!m.start?`<div class="fld"><label for="dm">Monto S/ (opcional)</label><input id="dm" type="number" step="0.1" min="0" placeholder="Vacío = cobrar por tiempo jugado"></div><div class="row"><button data-a="start" data-id="${id}">Iniciar</button></div>`:m.stop?`<p class="mut">Tiempo parado. Se cobra el tiempo jugado.</p>`:`<div class="row"><button data-a="stop" data-id="${id}">Parar tiempo y cobrar</button></div>`}
+  ${!m.start?`<div class="fld"><label for="dm">Monto S/ (opcional)</label><input id="dm" type="number" step="0.1" min="0" placeholder="Vacío = cobrar por tiempo jugado"></div><div class="row"><button data-a="start" data-id="${id}">Iniciar</button></div>`:m.stop?`<p class="mut">Tiempo parado. Cobra cuando quieras, o inicia otro turno.</p><div class="row"><button data-a="resume" data-id="${id}">Otro turno</button></div>`:`<div class="row"><button data-a="stop" data-id="${id}">Parar tiempo</button></div>`}
   ${m.start&&!m.stop?`<h3>Turno ${nt(m)}: ¿quién ganó?</h3><div class="chips">${m.players.map(p=>`<button class="chip win" data-a="win" data-pid="${p.id}">${esc(p.n)}</button>`).join('')}</div>`:''}
-  ${(m.turnos||[]).length?`<h3>Turnos jugados</h3><div class="score">${esc(tally(m))}</div>${m.turnos.map(t=>`<div class="turn"><b>Turno ${t.n}</b><span style="flex:1">Ganó ${esc(wname(m,t))}</span><span class="mut">${clock(t.d).slice(3)}</span></div>`).join('')}<div class="row"><button class="ghost sm" data-a="undowin">Deshacer último</button></div>`:''}
+  ${(m.turnos||[]).length?`<h3>Van ${tn(m)} turno${tn(m)==1?'':'s'} jugado${tn(m)==1?'':'s'}</h3><div class="score">${esc(tally(m))}</div>${m.turnos.map(t=>`<div class="turn"><b>Turno ${t.n}</b><span style="flex:1">Ganó ${esc(wname(m,t))}</span><span class="mut">${clock(t.d).slice(3)}</span></div>`).join('')}<div class="row"><button class="ghost sm" data-a="undowin">Deshacer último</button></div>`:''}
   <h3>Pedido para: ${esc(sp.n)}</h3><div class="chips">${S.prods.map((p,i)=>`<button class="chip" data-a="add" data-i="${i}" ${sp.paid||(p.s|0)<=0?'disabled':''}>${esc(p.n)} ${money(p.p)} · ${(p.s|0)<=0?'agotado':'quedan '+(p.s|0)}</button>`).join('')||'<span class="mut">Crea productos en la pestaña Productos.</span>'}</div>
   <h3>¿Quién paga la mesa?</h3><div class="fld" style="margin:4px 0"><select id="payer" aria-label="Quién paga la mesa"><option value="0">Dividir el tiempo entre todos</option>${m.players.map(p=>`<option value="${p.id}" ${m.payer==p.id?'selected':''}>${esc(p.n)} paga todo el tiempo</option>`).join('')}</select></div><h3>Personas</h3>
   ${m.players.map((p,k)=>`<div class="pp ${p.id==sel?'sel':''} ${p.paid?'paid':''}">
@@ -336,6 +336,7 @@ function act(b){
     T.push({n:T.length+1,pid:p.id,nm:p.n,t:now,d:now-(last?last.t:m.start)});save();detail(m.id);render()}
   else if(a=='undowin'){const m=cm();(m.turnos||[]).pop();save();detail(m.id);render()}
   else if(a=='stop'){const m=S.mesas.find(x=>x.id==id);m.stop=Date.now();save();render();if(dlg.open)detail(m.id)}
+  else if(a=='resume'){const m=S.mesas.find(x=>x.id==id);if(m&&m.stop){m.start+=Date.now()-m.stop;m.stop=null;save();render();if(dlg.open)detail(m.id)}}
   else if(a=='addpl'){const m=S.mesas.find(x=>x.id==(id||cur));sel=addPl(m).id;save();render();if(dlg.open){cur=m.id;detail(m.id)}}
   else if(a=='rmpl'){const m=cm();m.players=m.players.filter(p=>p.id!=pid);save();render();detail(m.id)}
   else if(a=='auto'){const m=cm(),p=m.players.find(x=>x.id==pid);if(p)delete p.custom;save();detail(m.id);render()}
