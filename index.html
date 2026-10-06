@@ -191,7 +191,7 @@ const trim=()=>{let c=false;while(S.mesas.length>MAXM){const i=S.mesas.map(m=>!m
 if(trim())try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
 const cm=()=>S.mesas.find(m=>m.id==cur);
 const el=m=>m.start?(m.stop||Date.now())-m.start:0;
-const bill=m=>{const c=Math.ceil(el(m)/60000/S.cfg.frac)*S.cfg.frac;return m.stop?Math.max(c,S.cfg.frac):Math.max(c,m.plan||0)};
+const bill=m=>Math.max(Math.ceil(el(m)/60000),m.plan||0);
 const pl=n=>(n=Math.round(n))==60?'1 hora':n==30?'media hora':n+' min';
 const over=m=>!m.stop&&m.plan&&sgel(m)>m.plan*60000;
 const disp=m=>m.start?clock(el(m)):clock(0);
@@ -202,8 +202,8 @@ const meter=m=>{if(m.monto==null||!m.start)return '';const a=acc(m),p=m.monto>0?
 const alerted=new Set();
 const beep=()=>{try{const c=new(window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.15;o.start();o.stop(c.currentTime+.6);if(navigator.vibrate)navigator.vibrate([200,100,200])}catch(e){}};
 const alertCheck=m=>{if(m.monto==null||!m.plan||m.stop)return;const x=sgel(m)-m.plan*60000,k=m.id+'_'+m.start+'_'+(m.seg||0);if(x>=0&&x<4000&&!alerted.has(k)){alerted.add(k);beep()}};
-const tcost=m=>m.monto!=null?acc(m):bill(m)/60*m.rate;
-const tshare=(m,p)=>m.players.some(x=>x.id==m.payer)?(p.id==m.payer?tcost(m):0):tcost(m)/Math.max(1,m.players.length);
+const tcost=m=>m.monto!=null?acc(m):el(m)/3600000*m.rate;
+const tshare=(m,p)=>{const c=Math.max(0,tcost(m)-(p.base||0));return m.players.some(x=>x.id==m.payer)?(p.id==m.payer?c:0):c/Math.max(1,m.players.length)};
 const pitems=(m,p)=>m.items.filter(i=>i.pid==p.id);
 const pic=(m,p)=>pitems(m,p).reduce((a,i)=>a+i.p*i.q,0);
 const pamt=(m,p)=>p.paid?p.amt:(p.custom!=null?p.custom:r2(tshare(m,p)+pic(m,p)+(p.sv||0)));
@@ -411,23 +411,33 @@ function detail(id){
   ${m.players.map((p,k)=>`<div class="pp ${p.id==sel?'sel':''} ${p.paid?'paid':''}">
     <div class="ph"><span class="seat" style="background:${COL[k%8]}">${k+1}</span><input data-pid="${p.id}" value="${esc(p.n)}" aria-label="Nombre" ${p.paid?'disabled':''}>${m.payer==p.id?'<span class="ok">Paga la mesa</span>':''}${p.paid?`<span class="amt" id="pa${p.id}">${money(pamt(m,p))}</span>`:`<span class="amt">S/</span><input id="pa${p.id}" data-amt="${p.id}" type="number" step="0.1" min="0" value="${dsp(m,p).toFixed(2)}" aria-label="Monto a cobrar (editable)" style="flex:none;width:92px;font-weight:700">${p.custom!=null?`<button class="ghost sm" data-a="auto" data-pid="${p.id}">Auto</button>`:''}`}</div>
     ${p.sv?`<div class="ok">Guardado en su cuenta: ${money(p.sv)} <span class="mut" style="font-weight:400">(se suma al cobrar)</span></div>`:''}<ul>${m.items.map((it,i)=>it.pid==p.id?`<li><span>${it.q} × ${esc(it.n)}</span><span>${money(it.p*it.q)}</span>${p.paid?'':`<button class="ghost sm" data-a="less" data-i="${i}" aria-label="Quitar uno">−</button>`}</li>`:'').join('')||'<li class="mut">Sin consumos</li>'}</ul>
-    ${p.paid?`<div class="ok">Pagó ${money(p.amt)} con ${p.pay}</div>`:`<div class="row"><button class="ghost sm" data-a="sel" data-pid="${p.id}">Pide</button>${['Efectivo','Yape','Tarjeta'].map(x=>`<button class="sm" data-a="pay" data-pid="${p.id}" data-p="${x}">Paga ${x}</button>`).join('')}${m.monto!=null&&m.start&&!m.stop?`<button class="ghost sm" data-a="tm" data-pid="${p.id}" title="Guarda el monto de este turno en su cuenta y empieza otro turno con el monto en 0">TM</button>`:''}${!pic(m,p)&&m.players.length>1?`<button class="ghost danger sm" data-a="rmpl" data-pid="${p.id}">Quitar</button>`:''}</div>`}</div>`).join('')}
+    ${p.paid?`<div class="ok">Pagó ${money(p.amt)} con ${p.pay}</div>`:`<div class="row"><button class="ghost sm" data-a="sel" data-pid="${p.id}">Pide</button>${['Efectivo','Yape','Tarjeta'].map(x=>`<button class="sm" data-a="pay" data-pid="${p.id}" data-p="${x}">Paga ${x}</button>`).join('')}${m.start&&(m.monto==null||!m.stop)?`<button class="ghost sm" data-a="tm" data-pid="${p.id}" title="Guarda lo acumulado en su cuenta y empieza otro turno desde S/ 0.00. El reloj sigue corriendo">TM</button>`:''}${!pic(m,p)&&m.players.length>1?`<button class="ghost danger sm" data-a="rmpl" data-pid="${p.id}">Quitar</button>`:''}</div>`}</div>`).join('')}
   <div class="row"><button class="ghost" data-a="addpl" data-id="${id}">+ Agregar persona</button><button class="ghost" data-a="edit">Editar mesa</button><button class="ghost danger" data-a="void">Anular cuenta</button></div>`;
   if(!dlg.open)dlg.showModal();
   if($('#pdlg').open)ped();
 }
+let psq='';
+const nrm=t=>String(t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+function pres(){
+  if(!S.prods.length)return '<span class="mut">Crea productos en la pestaña Productos.</span>';
+  const q=nrm(psq);if(!q)return '<span class="mut">Escribe el nombre del producto para buscarlo.</span>';
+  const r=S.prods.map((x,i)=>({x,i})).filter(o=>nrm(o.x.n).includes(q));
+  return r.map(o=>`<button class="chip" data-a="add" data-i="${o.i}" ${(o.x.s|0)<=0?'disabled':''}>${esc(o.x.n)} ${money(o.x.p)} · ${(o.x.s|0)<=0?'agotado':'quedan '+(o.x.s|0)}</button>`).join('')||'<span class="mut">No hay productos con ese nombre.</span>';
+}
 function ped(force){const pd=$('#pdlg'),m=cm();if(!pd||!m||(!force&&!pd.open))return;
+  const hadF=document.activeElement&&document.activeElement.id=='psq',selS=hadF?document.activeElement.selectionStart:0;
   const p=m.players.find(x=>x.id==sel);if(!p||p.paid){if(pd.open)pd.close();return}
   const its=m.items.map((it,i)=>({it,i})).filter(o=>o.it.pid==p.id),tot=pamt(m,p),ci2=pic(m,p),sv=p.sv||0;
   pd.innerHTML=`<h3 style="margin-top:0">Pide: ${esc(p.n)}</h3>
-  <div class="chips">${S.prods.map((q,i)=>`<button class="chip" data-a="add" data-i="${i}" ${(q.s|0)<=0?'disabled':''}>${esc(q.n)} ${money(q.p)} · ${(q.s|0)<=0?'agotado':'quedan '+(q.s|0)}</button>`).join('')||'<span class="mut">Crea productos en la pestaña Productos.</span>'}</div>
+  <input id="psq" type="search" placeholder="Buscar producto (ej. gaseosa)" autocomplete="off" aria-label="Buscar producto" value="${esc(psq)}" style="width:100%;box-sizing:border-box"><div class="chips" id="pres" style="margin-top:10px">${pres()}</div>
   <h3>Consumos de ${esc(p.n)}</h3><ul>${its.map(o=>`<li><span>${o.it.q} × ${esc(o.it.n)}</span><span>${money(o.it.p*o.it.q)}</span><button class="ghost sm" data-a="less" data-i="${o.i}" aria-label="Quitar uno">−</button></li>`).join('')||'<li class="mut">Sin consumos</li>'}</ul>
   <div class="pp" style="margin-top:12px"><div class="row" style="justify-content:space-between"><span class="mut">Tiempo</span><span id="ptm">${money(Math.max(0,r2(tot-ci2-sv)))}</span></div>
   <div class="row" style="justify-content:space-between"><span class="mut">Consumos</span><span>${money(ci2)}</span></div>
   ${sv?`<div class="row" style="justify-content:space-between"><span class="mut">Guardado en su cuenta</span><span>${money(sv)}</span></div>`:''}
   <div class="row" style="justify-content:space-between;font-size:1.15em"><b>Total a pagar</b><b id="ptot">${money(tot)}</b></div></div>
   <div class="row" style="margin-top:12px"><button data-a="closep">Listo</button></div>`;
-  if(!pd.open)pd.showModal()}
+  if(!pd.open)pd.showModal();
+  const si=$('#psq');if(si&&(hadF||force)){si.focus();try{si.setSelectionRange(selS,selS)}catch(e){}}}
 function editor(id){
   cur=id;const m=id?cm():{name:'Mesa '+S.nid,rate:10};
   dlg.innerHTML=`<div class="dh"><h2>${id?'Editar mesa':'Nueva mesa'}</h2><button class="ghost" data-a="close">Cerrar</button></div>
@@ -440,7 +450,7 @@ function act(b){
   const a=b.dataset.a,id=b.dataset.id,i=+b.dataset.i,pid=+b.dataset.pid;
   if(a=='tab'){tab=b.dataset.k;render()}
   else if(a=='open')detail(+id);
-  else if(a=='start'){const m=S.mesas.find(x=>x.id==id);if(!m.players.length){addPl(m);addPl(m)}const inp=dlg.open?$('#dm'):$('#mt'+id),mv=inp?inp.value.trim():'';if(mv!=='')m.monto=Math.max(0,r2(+mv||0));else delete m.monto;m.start=Date.now();m.seg=0;m.plan=m.monto>0&&m.rate>0?m.monto/m.rate*60:0;m.stop=null;save();render();if(dlg.open)detail(m.id)}
+  else if(a=='start'){const m=S.mesas.find(x=>x.id==id);if(!m.players.length){addPl(m);addPl(m)}const inp=dlg.open?$('#dm'):$('#mt'+id),mv=inp?inp.value.trim():'';if(mv!=='')m.monto=Math.max(0,r2(+mv||0));else delete m.monto;m.start=Date.now();m.seg=0;m.players.forEach(q=>{delete q.base});m.plan=m.monto>0&&m.rate>0?m.monto/m.rate*60:0;m.stop=null;save();render();if(dlg.open)detail(m.id)}
   else if(a=='win'){const m=cm(),p=m.players.find(x=>x.id==pid),T=m.turnos=m.turnos||[],last=T[T.length-1],now=Date.now();
     T.push({n:T.length+1,pid:p.id,nm:p.n,t:now,d:now-(last?last.t:m.start)});save();detail(m.id);render()}
   else if(a=='undowin'){const m=cm();(m.turnos||[]).pop();save();detail(m.id);render()}
@@ -448,9 +458,11 @@ function act(b){
   else if(a=='resume'){const m=S.mesas.find(x=>x.id==id);if(m&&m.stop){m.start+=Date.now()-m.stop;m.stop=null;save();render();if(dlg.open)detail(m.id)}}
   else if(a=='addpl'){const m=S.mesas.find(x=>x.id==(id||cur));sel=addPl(m).id;save();render();if(dlg.open){cur=m.id;detail(m.id)}}
   else if(a=='rmpl'){const m=cm();m.players=m.players.filter(p=>p.id!=pid);save();render();detail(m.id)}
-  else if(a=='tm'){const m=cm(),p=m.players.find(x=>x.id==pid);if(m&&p&&m.start&&!m.stop&&m.monto!=null){p.sv=r2((p.sv||0)+acc(m));delete p.custom;m.seg=el(m);save();detail(m.id);render()}}
+  else if(a=='tm'){const m=cm(),p=m.players.find(x=>x.id==pid);if(!m||!p||p.paid||!m.start)return;
+    if(m.monto!=null){if(m.stop)return;p.sv=r2((p.sv||0)+acc(m));delete p.custom;m.seg=el(m);save();detail(m.id);render()}
+    else{const c=tshare(m,p);p.sv=r2((p.sv||0)+c);p.base=tcost(m);delete p.custom;save();detail(m.id);render();toast('Guardado '+money(c)+' en la cuenta de '+p.n+'. Nuevo turno desde S/ 0.00, el reloj sigue')}}
   else if(a=='auto'){const m=cm(),p=m.players.find(x=>x.id==pid);if(p)delete p.custom;save();detail(m.id);render()}
-  else if(a=='sel'){sel=pid;detail(cur);ped(true)}
+  else if(a=='sel'){sel=pid;psq='';detail(cur);ped(true)}
   else if(a=='closep')$('#pdlg').close();
   else if(a=='close')dlg.close();
   else if(a=='new')editor(null);
@@ -494,7 +506,7 @@ function act(b){
   else if(a=='delp'){S.prods.splice(i,1);save();render()}
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b&&!b.disabled)act(b)});
-document.addEventListener('input',e=>{if(e.target.id=='oqty')updO()});
+document.addEventListener('input',e=>{if(e.target.id=='oqty')updO();else if(e.target.id=='psq'){psq=e.target.value;const r=$('#pres');if(r)r.innerHTML=pres()}});
 document.addEventListener('change',e=>{
   if(e.target.id=='prange'){prange=+e.target.value||14;render()}
   else if(e.target.id=='pmet'){pmet=e.target.value;render()}
