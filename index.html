@@ -228,7 +228,7 @@ function vProds(){
   return `<div class="bar"><input id="pn" placeholder="Producto" aria-label="Producto"><input id="pp" type="number" step="0.1" min="0" placeholder="Precio" aria-label="Precio" style="width:110px"><input id="ps" type="number" step="1" min="0" placeholder="Cantidad" aria-label="Cantidad en stock" style="width:110px"><button data-a="addp">Agregar producto</button></div>
   <ul>${S.prods.map((p,i)=>`<li><span>${esc(p.n)} ${(p.s|0)<=0?'<b style="color:var(--danger)">Agotado</b>':(p.s|0)<=3?'<b style="color:var(--brass)">Poco stock</b>':''}</span><span>${money(p.p)}</span><label class="mut" for="st${i}">Stock</label><input id="st${i}" data-sidx="${i}" type="number" step="1" min="0" value="${p.s|0}" style="width:80px"><button class="ghost danger" data-a="delp" data-i="${i}">Quitar</button></li>`).join('')||'<li class="mut">Aún no hay productos. Agrega el primero arriba.</li>'}</ul>`;
 }
-let drange=14;
+let drange=14,cmo=null;
 const shiftDay=(k,n)=>{const d=new Date(k+'T12:00:00');d.setDate(d.getDate()+n);return dkey(d)};
 function vDash(){
   const today=dkey(Date.now());if(!dday)dday=today;
@@ -257,10 +257,10 @@ function vDash(){
   const chart=`<div class="db-wrap ${drange>14?'many':''}"><div class="db-row">${keys.map((k,i)=>`<button class="db-col ${k==dday?'on':''} ${k==today?'td':''}" data-a="day" data-d="${k}" title="${lab(k)}: ${money(vals[i])}" aria-label="${lab(k)}: ${money(vals[i])}"><span class="db-plot"><i class="db-bar" style="height:${vals[i]/mx*100}%"></i>${vals[i]?`<span class="db-v" style="bottom:calc(${vals[i]/mx*100}% + 3px)">${Math.round(vals[i])}</span>`:''}</span><span class="db-l">${wd(k)}<br>${dd(k)}</span></button>`).join('')}</div>${avg?`<div class="db-avg" style="bottom:calc(var(--lh) + ${avg/mx} * var(--ph))"></div>`:''}</div>`;
 
   // calendario del mes
-  const y=+dday.slice(0,4),mo=+dday.slice(5,7),off=(new Date(y,mo-1,1).getDay()+6)%7,nd=new Date(y,mo,0).getDate();
+  const cmk=cmo||dday.slice(0,7),y=+cmk.slice(0,4),mo=+cmk.slice(5,7),off=(new Date(y,mo-1,1).getDay()+6)%7,nd=new Date(y,mo,0).getDate();
   const mk=d=>y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
   const mv=Array.from({length:nd},(_,i)=>dtot(mk(i+1))),mmx=Math.max(1,...mv),mtot=mv.reduce((a,x)=>a+x,0);
-  const pm=dkey(new Date(y,mo-2,15)),nm=dkey(new Date(y,mo,15)),nxt=nm>today?today:nm,nomore=dkey(new Date(y,mo,1))>today;
+  const pm=dkey(new Date(y,mo-2,1)).slice(0,7),nm=dkey(new Date(y,mo,1)).slice(0,7);
   const mname=new Date(y,mo-1,1).toLocaleDateString('es-PE',{month:'long',year:'numeric'});
   const cnt={};S.ventas.forEach(v=>{const k=dkey(v.t);cnt[k]=(cnt[k]||0)+1});
   const mdays=mv.filter(x=>x>0).length,mbi=mdays?mv.indexOf(Math.max(...mv)):-1;
@@ -287,7 +287,7 @@ function vDash(){
 
   <section class="db-card"><div class="db-hd"><div><h3>Ganancia por día</h3><div class="db-sub">${money(rangeTot)} en ${drange} días${bi>=0?'. Mejor día: '+lab(keys[bi])+' ('+money(vals[bi])+')':''}${avg?'. Línea punteada: promedio de días con ventas ('+money(avg)+')':''}</div></div><select id="drange" aria-label="Rango de días">${[7,14,30].map(n=>`<option value="${n}" ${drange==n?'selected':''}>Últimos ${n} días</option>`).join('')}</select></div>${chart}</section>
 
-  <section class="db-card"><div class="db-hd"><div><h3 style="text-transform:capitalize">${mname}</h3><div class="db-sub">${money(mtot)} en el mes. ${mdays} día${mdays==1?'':'s'} con ventas${mbi>=0?'. Mejor día: '+(mbi+1)+' ('+money(mv[mbi])+')':''}</div></div><div style="display:flex;gap:6px"><button class="db-ic" data-a="day" data-d="${pm}" aria-label="Mes anterior">‹</button><button class="db-ic" data-a="day" data-d="${nxt}" ${nomore?'disabled':''} aria-label="Mes siguiente">›</button></div></div><div class="db-cal">${cal}</div><div class="db-lg"><span>Menos</span><i></i><span>Más ventas</span></div></section>
+  <section class="db-card"><div class="db-hd"><div><h3 style="text-transform:capitalize">${mname}</h3><div class="db-sub">${money(mtot)} en el mes. ${mdays} día${mdays==1?'':'s'} con ventas${mbi>=0?'. Mejor día: '+(mbi+1)+' ('+money(mv[mbi])+')':''}</div></div><div style="display:flex;gap:6px"><button class="ghost sm" style="color:var(--ink)" data-a="cmo" data-m="${pm}" aria-label="Mes anterior">‹ Anterior</button><button class="sm" data-a="cmo" data-m="${nm}" aria-label="Mes siguiente">Siguiente ›</button></div></div><div class="db-cal">${cal}</div><div class="db-lg"><span>Menos</span><i></i><span>Más ventas</span></div></section>
 
   <section><h3 style="margin-top:0">Por mesa, ${tl}</h3><div class="db-mesas">${names.map(n=>{const b=bm[n];return `<div class="db-mesa ${n==top?'top':''}"><div class="hd"><span>${n==top?'🏆 ':''}${esc(n)}</span><b>${money(b.tot)}</b></div>${pool({start:1})}<div class="mut">${b.n} cobro${b.n==1?'':'s'}. Tiempo ${money(b.tc)}, consumos ${money(b.ic)}</div><div class="bar2"><i style="width:${tot?b.tot/tot*100:0}%"></i></div></div>`}).join('')}</div></section>
 
@@ -359,14 +359,15 @@ function act(b){
     const k=S.ventas.findIndex(v=>id?v._id==id:v.t==+b.dataset.t);if(k>=0)S.ventas.splice(k,1);
     try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
     if(id&&window.FB)FB.delVenta(id);render()}
-  else if(a=='day'){dday=b.dataset.d;render()}
+  else if(a=='day'){dday=b.dataset.d;cmo=null;render()}
+  else if(a=='cmo'){cmo=b.dataset.m;render()}
   else if(a=='addp'){const n=$('#pn').value.trim(),p=+$('#pp').value,q=Math.max(0,parseInt($('#ps').value)||0);if(!n||!(p>=0))return;const ex=S.prods.find(x=>x.n==n&&x.p==p);if(ex)ex.s=(ex.s|0)+q;else S.prods.push({n,p,s:q});save();render()}
   else if(a=='delp'){S.prods.splice(i,1);save();render()}
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b&&!b.disabled)act(b)});
 document.addEventListener('change',e=>{
   if(e.target.id=='drange'){drange=+e.target.value||14;render()}
-  else if(e.target.id=='dday'){dday=e.target.value||dkey(Date.now());render()}
+  else if(e.target.id=='dday'){dday=e.target.value||dkey(Date.now());cmo=null;render()}
   else if(e.target.id=='frac'){S.cfg.frac=+e.target.value;save();render()}
   else if(e.target.dataset.amt!==undefined){const m=cm(),p=m.players.find(x=>x.id==e.target.dataset.amt);if(p){const v=e.target.value.trim();if(v==='')delete p.custom;else p.custom=Math.max(0,r2(+v||0));save();detail(m.id);render()}}
   else if(e.target.dataset.sidx!==undefined){const p=S.prods[+e.target.dataset.sidx];if(p){p.s=Math.max(0,parseInt(e.target.value)||0);save();render()}}
