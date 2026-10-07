@@ -535,9 +535,9 @@ function act(b){
   else if(a=='resume'){const m=S.mesas.find(x=>x.id==id);if(m&&m.stop){m.start+=Date.now()-m.stop;m.stop=null;save();render();if(dlg.open)detail(m.id)}}
   else if(a=='addpl'){const m=S.mesas.find(x=>x.id==(id||cur));sel=addPl(m).id;save();render();if(dlg.open){cur=m.id;detail(m.id)}}
   else if(a=='rmpl'){const m=cm();m.players=m.players.filter(p=>p.id!=pid);save();render();detail(m.id)}
-  else if(a=='tm'){const m=cm(),p=m.players.find(x=>x.id==pid);if(!m||!p||p.paid||!m.start)return;
-    if(m.monto!=null){if(m.stop)return;const c=acc(m);p.sv=r2((p.sv||0)+c);delete p.custom;m.seg=el(m);save();detail(m.id);render();toast('Guardado '+money(c)+' en la cuenta de '+p.n+'. Nuevo turno desde S/ 0.00')}
-    else{const c=tshare(m,p);p.sv=r2((p.sv||0)+c);p.base=tcost(m);delete p.custom;save();detail(m.id);render();toast('Guardado '+money(c)+' en la cuenta de '+p.n+'. Nuevo turno desde S/ 0.00, el reloj sigue')}}
+  else if(a=='tm'){const m=cm(),p=m.players.find(x=>x.id==pid);if(!m||!p||p.paid||!m.start)return;const ps=m.players.filter(x=>!x.paid);
+    if(m.monto!=null){if(m.stop)return;const c=acc(m);p.sv=r2((p.sv||0)+c);ps.forEach(x=>{delete x.custom});m.seg=el(m);save();detail(m.id);render();toast('Guardado '+money(c)+' (todos los jugadores) en la cuenta de '+p.n+'. Nuevo turno desde S/ 0.00')}
+    else{const c=r2(ps.reduce((t,x)=>t+tshare(m,x),0)),tc=tcost(m);p.sv=r2((p.sv||0)+c);ps.forEach(x=>{delete x.custom;x.base=tc});save();detail(m.id);render();toast('Guardado '+money(c)+' (todos los jugadores) en la cuenta de '+p.n+'. Todos desde S/ 0.00, el reloj sigue')}}
   else if(a=='auto'){const m=cm(),p=m.players.find(x=>x.id==pid);if(p)delete p.custom;save();detail(m.id);render()}
   else if(a=='sel'){sel=pid;psq='';detail(cur);ped(true)}
   else if(a=='closep')$('#pdlg').close();
